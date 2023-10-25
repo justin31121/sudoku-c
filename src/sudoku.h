@@ -95,6 +95,27 @@ SUDOKU_DEF u64 sudoku_solutions(Sudoku *s);
 
 #ifdef SUDOKU_IMPLEMENTATION
 
+SUDOKU_DEF f32 __sudoku_randf() {
+  return (f32) rand() / (f32) RAND_MAX;
+}
+
+
+SUDOKU_DEF void __sudoku_shuffle_fisher_yates(u8 *xs, u64 xs_len) {
+
+  if(xs_len == 0) return;
+  
+  for(u64 i = xs_len - 1;;i--) {
+    if(i == 0) return;
+    
+    u64 j = (u8) (__sudoku_randf() * (f32) (i + 1));
+    
+    u8 temp = xs[i];
+    xs[i] = xs[j];
+    xs[j] = temp;    
+  }
+  
+}
+
 SUDOKU_DEF void sudoku_collect(Sudoku *s, Sudoku_Table t, u8 px, u8 py, u8 w, u8 h) {
   for(u8 dy=0;dy<h;dy++) {
     for(u8 dx=0;dx<w;dx++) {
@@ -148,10 +169,49 @@ SUDOKU_DEF bool sudoku_solve(Sudoku *s) {
   return false;
 }
 
+SUDOKU_DEF bool sudoku_solutions_impl(Sudoku *s, u64 *n) {
+
+  // Find empty slot
+  u8 i=0;
+  for(;i<9*9;i++) {
+    u8 value = s->grid[i];
+    if(value == 0 || 9 < value) break;
+  }
+
+  // No empty slot found
+  if(i == 9 * 9) {
+    *n = *n + 1;
+    return true;
+  }
+
+  u8 y = i / 9;
+  u8 x = i % 9;
+
+  // Collect stats for (x, y)
+  Sudoku_Table table = {0};
+  sudoku_collect(s, table, 0, y, 9, 1);
+  sudoku_collect(s, table, x, 0, 1, 9);
+  sudoku_collect(s, table, x - (x % 3), y - (y % 3), 3, 3);
+
+  for(u8 j=0;j<9;j++) {
+
+    // If j was encountered, skip j
+    if(table[j] > 0) continue;
+
+    // Backtrack
+    SUDOKU_SET(*s, x, y, j + 1);
+    sudoku_solutions_impl(s, n);
+    SUDOKU_SET(*s, x, y, 0);
+  }
+
+  return false;
+}
 
 SUDOKU_DEF u64 sudoku_solutions(Sudoku *s) {
   (void) s;
   u64 n = 0;
+
+  sudoku_solutions_impl(s, &n);
   
   return n;  
 }
