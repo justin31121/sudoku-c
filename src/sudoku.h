@@ -91,6 +91,7 @@ SUDOKU_DEF void sudoku_print(Sudoku *s);
 SUDOKU_DEF bool sudoku_is_solved(Sudoku *s);
 SUDOKU_DEF bool sudoku_is_valid(Sudoku *s);
 SUDOKU_DEF bool sudoku_solve(Sudoku *s);
+SUDOKU_DEF Sudoku sudoku_generate();
 SUDOKU_DEF u64 sudoku_solutions(Sudoku *s);
 
 #ifdef SUDOKU_IMPLEMENTATION
@@ -167,6 +168,76 @@ SUDOKU_DEF bool sudoku_solve(Sudoku *s) {
   }
 
   return false;
+}
+
+SUDOKU_DEF Sudoku sudoku_generate() {
+  Sudoku s = {0};
+  
+  u8 queue[81];
+  for(u8 i=0;i<81;i++) queue[i] = i;
+
+  // Generate random solved puzzle
+  __sudoku_shuffle_fisher_yates(queue, 81);
+  for(u8 i=0;i<81;i++) {
+
+    // Random position in grid
+    u8 j = queue[i];
+    
+    u8 y = j / 9;
+    u8 x = j % 9;
+
+    // Choose random, valid number for position
+    Sudoku_Table table = {0};
+    sudoku_collect(&s, table, 0, y, 9, 1);
+    sudoku_collect(&s, table, x, 0, 1, 9);
+    sudoku_collect(&s, table, x - (x % 3), y - (y % 3), 3, 3);
+
+    u8 random_start = (u8) (__sudoku_randf() * 8.f);
+    u8 random_number = 0;
+    for(u8 k=0;random_number==0 && k<9;k++) {
+      if(table[random_start] == 0) {
+	random_number = random_start + 1;
+      }
+      random_start = (random_start + 1) % 9;
+    }
+    assert(random_number != 0);
+
+    // Set random number and look, if it can be solved
+    SUDOKU_SET(s, x, y, random_number);
+
+    Sudoku copy = s;
+    bool can_be_solved = sudoku_solve(&s);
+    s = copy;
+
+    // If if it cant be solved, undo
+    if(!can_be_solved) {
+      SUDOKU_SET(s, x, y, 0);
+    }      
+
+  }
+
+  // Random treshhold
+  //u8 n = (u8) (__sudoku_randf() * 81.f);
+  u8 n = 30;
+
+  // Remove Numbers from solved puzzle, randomly
+  __sudoku_shuffle_fisher_yates(queue, 81);
+  for(u8 i=0;i<n;i++) {
+    u8 j = queue[i];
+    
+    u8 y = j / 9;
+    u8 x = j % 9;
+
+    u8 value = SUDOKU_GET(s, x, y);
+    SUDOKU_SET(s, x, y, 0);
+    u64 solutions = sudoku_solutions(&s);
+    assert(solutions != 0);
+    if(solutions != 1) {
+      SUDOKU_SET(s, x, y, value);
+    }    
+  }
+
+  return s;
 }
 
 SUDOKU_DEF bool sudoku_solutions_impl(Sudoku *s, u64 *n) {

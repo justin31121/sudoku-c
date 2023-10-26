@@ -62,7 +62,7 @@ WAV_DEF bool wav_slurp(Wav *wav_header, const char *filepath, unsigned char **da
     fclose(f);
     return false;
   }
-  fseek(f, off, SEEK_CUR);
+  fseek(f, (long) off, SEEK_CUR);
   size_t m = fread(*data, 1, *size, f);
   if(m != *size) {
     fclose(f);
@@ -85,8 +85,12 @@ WAV_DEF bool wav_read(Wav *wav_header, unsigned char *memory, size_t memory_len,
   
   memory += header_size;
   memory_len -= header_size;
+  
+  uint64_t off = 32;
+  memory += off;
+  memory_len -= off;
 
-  *size = (uint64_t) wav_header->chunkSize - header_size;
+  *size = (uint64_t) wav_header->chunkSize - header_size - off;
   *data = memory;  
 
   return true;
